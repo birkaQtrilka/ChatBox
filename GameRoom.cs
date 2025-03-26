@@ -68,6 +68,12 @@ public class GameRoom(string name) : Room(name)
                 Write(senderStream, "chat", "Possible commands:\n" + possibleCommands);
                 break;
 
+            case "listRooms":
+                var roomsEnumerable = TCPServerSample.Rooms.Select(r => r.Key);
+                Write(senderStream, "chat", "Current rooms:\n" + string.Join('\n', roomsEnumerable));
+
+                break;
+
             case "whisper":
                 string[] commands = content.Split(' ');
                 if (commands.Length < 2)
@@ -77,7 +83,7 @@ public class GameRoom(string name) : Room(name)
                 }
 
                 string targetName = commands[0];
-                string messageStr = commands[1];
+                string messageStr = string.Join(' ', commands[1..]);
                 GameClient target = clients.FirstOrDefault(c => c.Name == targetName);
                 if (target == null)
                 {
@@ -85,7 +91,7 @@ public class GameRoom(string name) : Room(name)
                     return;
                 }
                 Write(senderStream, "chat", $"You whisper to {targetName}: {messageStr}");
-                Write(target.Client.GetStream(), "chat", $"<{sender.Name}> whispes: {messageStr}");
+                Write(target.Client.GetStream(), "chat", $"<{sender.Name}> whispers: {messageStr}");
                 break;
 
         }

@@ -3,15 +3,17 @@ using System.Net;
 using shared;
 using System.Text;
 using server;
+using System.Collections.ObjectModel;
 
 partial class TCPServerSample
 {
     static Dictionary<string, Room> rooms = new();
     static LobbyRoom lobbyRoom = new LobbyRoom("Lobby");
     static Stack<Action> _createRoomStack = new Stack<Action>();
-
+    public static ReadOnlyDictionary<string, Room> Rooms { get; private set; }
     public static void Main (string[] args)
 	{
+        Rooms = new(rooms);
 		Console.WriteLine("Server started on port 55555");
 
 		TcpListener listener = new (IPAddress.Any, 55555);

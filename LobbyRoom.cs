@@ -17,6 +17,11 @@ namespace server
                 case "join":
                     TCPServerSample.JoinOrCreateRoom(content, sender, this);
                     break;
+                case "listRooms":
+                    var roomsEnumerable = TCPServerSample.Rooms.Select(r => r.Key);
+                    Write(senderStream, "chat", "Current rooms:\n" + string.Join('\n', roomsEnumerable));
+
+                    break;
                 case "changeName":
                     var validatedName = content.ToLower().Trim();
                     if (string.IsNullOrEmpty(validatedName))
