@@ -35,7 +35,7 @@ public class GameRoom(string name) : Room(name)
                 break;
 
             case "whisper":
-                OnListRooms(content, sender, senderStream);
+                OnWhisper(content, sender, senderStream);
                 break;
 
         }

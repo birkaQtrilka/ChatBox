@@ -59,21 +59,7 @@ namespace server
                 Write(senderStream, "changeName", "Failed to change name, reason: it already exists");
                 return;
             }
-
-            SafeForEach(other =>
-            {
-                NetworkStream otherStream = other == sender ? senderStream : other.Client.GetStream();
-
-                if (sender == other)
-                {
-                    Write(otherStream, "changeName", "You changed name to " + validatedName);
-                }
-                else
-                {
-                    Write(otherStream, "changeName", $"{sender.Name} changed name to {validatedName}");
-                }
-
-            });
+            Write(senderStream, "changeName", "You changed name to " + validatedName);
             sender.Name = validatedName;
         }
     }
