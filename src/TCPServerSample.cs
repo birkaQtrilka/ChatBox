@@ -11,6 +11,8 @@ partial class TCPServerSample
     static LobbyRoom lobbyRoom = new LobbyRoom("Lobby");
     static Stack<Action> _createRoomStack = new Stack<Action>();
     public static ReadOnlyDictionary<string, Room> Rooms { get; private set; }
+    static int guestCount = 0;
+
     public static void Main (string[] args)
 	{
         Rooms = new(rooms);
@@ -19,48 +21,14 @@ partial class TCPServerSample
 		TcpListener listener = new (IPAddress.Any, 55555);
 		listener.Start ();
 
-		int guestCount = 0;
 
         rooms.Add("Lobby", lobbyRoom);
 
 		while (true)
 		{
-			//First big change with respect to example 001
-			//We no longer block waiting for a client to connect, but we only block if we know
-			//a client is actually waiting (in other words, we will not block)
-			//In order to serve multiple clients, we add that client to a list
-			while (listener.Pending()) {
-				string name = "Guest" + guestCount++;
-                var newMember = new GameClient(listener.AcceptTcpClient(), name);
-
-                lobbyRoom.AddMember(newMember);
-				Console.WriteLine("Accepted new client.");
-
-                lobbyRoom.ProcessJoinedMsg(newMember, name);
-            }
-
-            foreach (var currentRoom in rooms.Values)
-            {
-                currentRoom.SafeForEach(gameClient =>
-                {
-                    TcpClient client = gameClient.Client;
-                    if (client.Available == 0) return;
-                    NetworkStream stream = client.GetStream();
-
-                    byte[] inBytes = StreamUtil.Read(client.GetStream());
-                    string[] input = Encoding.UTF8.GetString(inBytes).Split(',');
-                    string header = input[0];
-                    string content = input[1];
-
-                    currentRoom.ProcessMessage(header, content, gameClient, stream);
-
-                });
-            }
-            while(_createRoomStack.Count > 0)
-            {
-                Action newRoomCall = _createRoomStack.Pop();
-                newRoomCall();
-            }
+            ProcessNewClients(listener);
+            ProcessExistingClients();
+            ProcessCommands();
             //Although technically not required, now that we are no longer blocking, 
             //it is good to cut your CPU some slack
             Thread.Sleep(100);
@@ -68,41 +36,51 @@ partial class TCPServerSample
 
 	}
 
-	//public static bool TrySwitchToRoom(string name)
- //   {
- //       if (!rooms.TryGetValue(name, out Room value))
- //       {
- //           Console.WriteLine("Room could not be found");
- //           return false;
- //       }
- //       SwitchToRoom(value);
- //       return true;
- //   }
+    static void ProcessNewClients(TcpListener listener)
+    {
+        while (listener.Pending())
+        {
+            string name = "Guest" + guestCount++;
+            var newMember = new GameClient(listener.AcceptTcpClient(), name);
 
-    //public static void SwitchToRoom(string name)
-    //{
-    //    SwitchToRoom(rooms[name]);
-    //}
+            lobbyRoom.AddMember(newMember);
+            Console.WriteLine("Accepted new client.");
 
-    //public static void SwitchToRoom(Room room)
-    //{
-    //    currentRoom.OnExit();
-    //    currentRoom = room;
-    //    currentRoom.OnEnter();
-    //}
+            lobbyRoom.ProcessJoinedMsg(newMember, name);
+        }
+    }
 
-    //public static bool CreateRoom(string name)
-    //{
-    //    if (!rooms.ContainsKey(name))
-    //    {
-    //        Console.WriteLine("Room already exists");
-    //        return false;
-    //    }
+    static void ProcessExistingClients()
+    {
+        foreach (var currentRoom in rooms.Values)
+        {
+            currentRoom.SafeForEach(gameClient =>
+            {
+                TcpClient client = gameClient.Client;
+                if (client.Available == 0) return;
+                NetworkStream stream = client.GetStream();
 
-    //    rooms.Add(name, new GameRoom(name));
+                byte[] inBytes = StreamUtil.Read(client.GetStream());
+                string[] input = Encoding.UTF8.GetString(inBytes).Split(',');
+                string header = input[0];
+                string content = input[1];
 
-    //    return true;
-    //}
+                currentRoom.ProcessMessage(header, content, gameClient, stream);
+
+            });
+        }
+    }
+
+    static void ProcessCommands()
+    {
+        while (_createRoomStack.Count > 0)
+        {
+            Action newRoomCall = _createRoomStack.Pop();
+            newRoomCall();
+        }
+    }
+
+    public static List<Room> GetRooms() => new(rooms.Values);
 
     public static void JoinOrCreateRoom(string name, GameClient sender, Room leavingRoom)
     {

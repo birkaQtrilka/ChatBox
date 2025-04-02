@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net.Sockets;
-using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Net.Sockets;
 
 namespace server
 {
@@ -15,35 +9,15 @@ namespace server
             switch (header)
             {
                 case "join":
-                    TCPServerSample.JoinOrCreateRoom(content, sender, this);
+                    OnJoin(content, sender, senderStream);
                     break;
                 case "listRooms":
-                    var roomsEnumerable = TCPServerSample.Rooms.Select(r => r.Key);
-                    Write(senderStream, "chat", "Current rooms:\n" + string.Join('\n', roomsEnumerable));
-
+                    OnListRooms(content, sender, senderStream);
                     break;
                 case "changeName":
-                    var validatedName = content.ToLower().Trim();
-                    if (string.IsNullOrEmpty(validatedName))
-                    {
-                        Write(senderStream, "changeName", "Failed to change name, reason: empty name");
-                        return;
-                    }
-                    else if (clients.Any(c => c.Name == content))
-                    {
-                        Write(senderStream, "changeName", "Failed to change name, reason: it already exists");
-                        return;
-                    }
-                    Write(senderStream, "changeName", "You changed name to " + validatedName);
-                    
-                    sender.Name = validatedName;
+                    OnChangeName(content, sender, senderStream);
                     break;
             }
-        }
-
-        public void ProcessJoinedMsg(GameClient sender, string name)
-        {
-            Write(sender.Client.GetStream(), "joined", "You Joined as: " + name);
         }
 
         protected override void OnPlayerLeft(GameClient player)
@@ -54,6 +28,53 @@ namespace server
         protected override void OnPlayerJoined(GameClient player)
         {
             Write(player.Client.GetStream(), "chat", "You joined the lobby ");
+        }
+
+        public void ProcessJoinedMsg(GameClient sender, string name)
+        {
+            Write(sender.Client.GetStream(), "joined", "You Joined as: " + name);
+        }
+
+        void OnJoin(string content, GameClient sender, NetworkStream senderStream)
+        {
+            TCPServerSample.JoinOrCreateRoom(content, sender, this);
+        }
+
+        void OnListRooms(string content, GameClient sender, NetworkStream senderStream)
+        {
+            var roomsEnumerable = TCPServerSample.Rooms.Select(r => r.Key);
+            Write(senderStream, "chat", "Current rooms:\n" + string.Join('\n', roomsEnumerable));
+        }
+
+        void OnChangeName(string content, GameClient sender, NetworkStream senderStream)
+        {
+            var validatedName = content.ToLower().Trim();
+            if (string.IsNullOrEmpty(validatedName))
+            {
+                Write(senderStream, "changeName", "Failed to change name, reason: empty name");
+                return;
+            }
+            else if (TCPServerSample.GetRooms().Any(r=> r.Clients.Any(c => c.Name == content)))
+            {
+                Write(senderStream, "changeName", "Failed to change name, reason: it already exists");
+                return;
+            }
+
+            SafeForEach(other =>
+            {
+                NetworkStream otherStream = other == sender ? senderStream : other.Client.GetStream();
+
+                if (sender == other)
+                {
+                    Write(otherStream, "changeName", "You changed name to " + validatedName);
+                }
+                else
+                {
+                    Write(otherStream, "changeName", $"{sender.Name} changed name to {validatedName}");
+                }
+
+            });
+            sender.Name = validatedName;
         }
     }
 }

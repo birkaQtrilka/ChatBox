@@ -1,5 +1,6 @@
 ﻿
 using shared;
+using System.Collections.ObjectModel;
 using System.Net.Sockets;
 using System.Text;
 
@@ -7,6 +8,15 @@ public abstract class Room(string name)
 {
     protected readonly List<GameClient> clients = [];
     public string Name { get; } = name;
+    ReadOnlyCollection<GameClient> _clientsCache;
+    public ReadOnlyCollection<GameClient> Clients
+    {
+        get
+        {
+            _clientsCache ??= new(clients);
+            return _clientsCache;
+        }
+    }
 
     public void SafeForEach(Action<GameClient> method)
     {
